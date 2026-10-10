@@ -11,17 +11,22 @@ export default async function handler(req, res) {
   const url = isAlert ? process.env.WEBHOOK_ALERTS : process.env.WEBHOOK_LOGS;
   if (!url) return res.json({ ok: true });
 
-  const colors = {
-    boot: 0x5865f2, connect: 0x57f287, ban: 0xed4245,
-    error: 0xfee75c, warn: 0xfee75c, log: 0x99aab5
-  };
+  const title = String(p.title || type);
+  const t = title.toLowerCase();
+
+  const color =
+    (t.includes("ban") || t.includes("fail") || t.includes("error")) ? 0xFF0000 :
+    (t.includes("connected") || t.includes("obtained"))             ? 0x00FF00 :
+    t.includes("warning")                                            ? 0xFFFF00 :
+    t.includes("new")                                                ? 0x00FFFF :
+                                                                       0xFFA500;
 
   const embed = {
-    title: p.title || type,
+    title,
     description: p.message || "",
-    color: colors[type] || 0x99aab5,
+    color,
     timestamp: p.timestamp || new Date().toISOString(),
-    footer: { text: "milk-tag" }
+    footer: { text: "GUBBA TAG Auth" }
   };
 
   try {
