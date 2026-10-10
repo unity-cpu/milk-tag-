@@ -30,13 +30,13 @@ export default async function handler(req, res) {
         "OS: " + (body.os || "") + "\n" +
         "Time: " + new Date().toLocaleString(),
       color: 0xFF0000,
-      footer: { text: "GUBBA TAG Auth" }
+      footer: { text: "Milk Tag Auth" }
     });
     return res.json({ ok: false, expectedVersion: expected, reason: "outdated" });
   }
 
   await send(process.env.WEBHOOK_LOGS, {
-    title: "Handshake OK",
+    title: "player authed",
     description:
       "Version: " + clientVer + "\n" +
       "Custom ID: " + (body.customId || "") + "\n" +
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
       "OS: " + (body.os || "") + "\n" +
       "Time: " + new Date().toLocaleString(),
     color: 0x00FF00,
-    footer: { text: "GUBBA TAG Auth" }
+    footer: { text: "Milk Tag Auth" }
   });
 
   return res.json({ ok: true, expectedVersion: expected });

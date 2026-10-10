@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     description: p.message || "",
     color,
     timestamp: p.timestamp || new Date().toISOString(),
-    footer: { text: "GUBBA TAG Auth" }
+    footer: { text: "Milk Tag Auth" }
   };
 
   try {
