@@ -19,7 +19,7 @@ function allowedSigs(): string[] {
     .filter(Boolean);
 }
 
-// Returns true only if the HWID is on the BannedHwids title-data list.
+// True only if the HWID is on the BannedHwids title-data list.
 // Lookup errors fail open (a PlayFab hiccup shouldn't lock everyone out).
 async function hwidBanned(hwid: string): Promise<boolean> {
   const title = process.env.PLAYFAB_TITLE_ID;
@@ -43,6 +43,12 @@ async function hwidBanned(hwid: string): Promise<boolean> {
   }
 }
 
+// Backticks would break Discord formatting; field values max out at 1024 chars.
+const code = (v) => {
+  const s = String(v ?? "").replace(/`/g, "'").slice(0, 1000);
+  return s ? "`" + s + "`" : "`N/A`";
+};
+
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ ok: false, reason: "method" });
 
@@ -54,56 +60,61 @@ export default async function handler(req, res) {
   const customId = String(body.customId || "").slice(0, 120);
   const hwid = String(body.hardwareId || "").slice(0, 120);
   const sig = String(body.signature || "").trim().toLowerCase().slice(0, 128);
+  const device = String(body.deviceModel || "").slice(0, 80);
+  const os = String(body.os || "").slice(0, 80);
+  const now = new Date().toISOString();
 
-  const details =
-    "Version: " + clientVer + "\n" +
-    "Custom ID: " + customId + "\n" +
-    "Hardware ID: " + hwid + "\n" +
-    "APK Signature: " + sig + "\n" +
-    "Device Model: " + String(body.deviceModel || "").slice(0, 80) + "\n" +
-    "OS: " + String(body.os || "").slice(0, 80) + "\n" +
-    "Time: " + new Date().toISOString();
+  const embed = (title: string, color: number, extra: any[] = []) => ({
+    title,
+    color,
+    fields: [
+      ...extra,
+      { name: "Version",       value: code(clientVer), inline: true },
+      { name: "Time",          value: code(now),       inline: true },
+      { name: "Custom ID",     value: code(customId),  inline: false },
+      { name: "Hardware ID",   value: code(hwid),      inline: false },
+      { name: "Device",        value: code(device),    inline: true },
+      { name: "OS",            value: code(os),        inline: true },
+      { name: "APK Signature", value: code(sig),       inline: false }
+    ],
+    timestamp: now,
+    footer: { text: "Unity Tag Auth" }
+  });
 
   // 1) version
   if (!expected || clientVer !== expected) {
-    await send(process.env.WEBHOOK_ALERTS, {
-      title: "Version Mismatch",
-      description: "Expected Version: " + expected + "\n" + details,
-      color: 0xFF0000,
-      footer: { text: "Milk Tag Auth" }
+    await send(
+      process.env.WEBHOOK_ALERTS,
+      embed("Version Mismatch", 0xFF0000, [{ name: "Expected Version", value: code(expected), inline: true }])
+    );
+    return res.json({
+      ok: false,
+      expectedVersion: expected,
+      reason: "outdated have " + clientVer + " need " + expected
     });
-    return res.json({ ok: false, expectedVersion: expected, reason: "outdated have " + clientVer + " need " + expected });
   }
 
   // 2) APK signature (fails closed if ALLOWED_SIGS isn't configured)
   const sigs = allowedSigs();
   if (sigs.length === 0 || !sigs.includes(sig)) {
-    await send(process.env.WEBHOOK_ALERTS, {
-      title: "Signature Mismatch (rejected)",
-      description: (sigs.length === 0 ? "ALLOWED_SIGS is not configured\n" : "") + details,
-      color: 0xFF0000,
-      footer: { text: "Milk Tag Auth" }
-    });
+    await send(
+      process.env.WEBHOOK_ALERTS,
+      embed(
+        "Signature Mismatch (rejected)",
+        0xFF0000,
+        sigs.length === 0 ? [{ name: "Config", value: code("ALLOWED_SIGS is not set"), inline: false }] : []
+      )
+    );
     return res.json({ ok: false, expectedVersion: expected, reason: REJECT });
   }
 
   // 3) banned hardware
   if (await hwidBanned(hwid)) {
-    await send(process.env.WEBHOOK_ALERTS, {
-      title: "Banned HWID (rejected)",
-      description: details,
-      color: 0xFF0000,
-      footer: { text: "Milk Tag Auth" }
-    });
+    await send(process.env.WEBHOOK_ALERTS, embed("Banned HWID (rejected)", 0xFF0000));
     return res.json({ ok: false, expectedVersion: expected, reason: REJECT });
   }
 
-  await send(process.env.WEBHOOK_LOGS, {
-    title: "player authed",
-    description: details,
-    color: 0x00FF00,
-    footer: { text: "Milk Tag Auth" }
-  });
+  await send(process.env.WEBHOOK_LOGS, embed("player authed", 0x00FF00));
 
   return res.json({ ok: true, expectedVersion: expected });
 }
