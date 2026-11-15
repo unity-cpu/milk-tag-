@@ -90,7 +90,7 @@ export default async function handler(req, res) {
     return res.json({
       ok: false,
       expectedVersion: expected,
-      reason: "outdated have " + clientVer + " need " + expected
+      reason: "outdated update da game"
     });
   }
 
